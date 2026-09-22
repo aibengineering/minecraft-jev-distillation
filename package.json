@@ -10,6 +10,7 @@
     "fight": "bun src/run.ts terrain --frozen --step 2",
     "fight:lgbm": "bun src/run.ts terrain --policy lgbm",
     "fight:lgbm:watch": "bun src/run.ts terrain --policy lgbm --watch",
+    "labs:lgbm": "bun src/run.ts scenarios --policy lgbm --model site/content/model.json --watch",
     "demo:record": "bun src/run.ts demo-moment --policy lgbm --model site/content/model.json --demo --watch",
     "viewer": "bun --hot viewer/server.ts",
     "compare": "bun review/compare.ts",

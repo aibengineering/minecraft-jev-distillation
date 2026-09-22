@@ -55,11 +55,15 @@ repository's **Settings → Pages → Source** to **GitHub Actions**.
 
 ## Run the bot
 
-With dependencies installed and Java 21 available, run the included model:
+With dependencies installed and Java 21 available, open the scenario dashboard
+with the included model:
 
 ```sh
-bun src/run.ts mixed --policy lgbm --model site/content/model.json --watch
+bun run labs:lgbm
 ```
+
+Choose a fight in Mine Labs. Use **F10 → Return to Labs** to pick another;
+decisions and probabilities are recorded automatically.
 
 For live Jev, training, recording, and the code layout, see the
 [development guide](docs/development.md). Details of the selected video and

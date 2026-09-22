@@ -69,6 +69,20 @@ what the freeze does and does not stop, is the TIMING comment in
 
 ## Mode two: the distilled model
 
+To choose fights interactively with the committed demo model:
+
+```bash
+bun run labs:lgbm
+```
+
+This opens Mine Labs on the `scenarios/` folder with the LightGBM policy and
+`site/content/model.json`. Select a fight in the dashboard; **F10 → Return to
+Labs** lets you choose another. Every fight saves its decisions and probabilities
+in `logs/` and paired feature rows in `data/samples/`. Start OBS before selecting
+a scenario to record footage for a montage.
+
+To train and evaluate a new local model:
+
 ```bash
 bun run samples      # data/samples from every log under logs/ (--force rebuilds)
 bun run train        # five heads on the frozen jev rows, run-grouped CV, ml/models/jev-lgbm.json

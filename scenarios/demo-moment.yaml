@@ -1,0 +1,41 @@
+name: jev-demo-moment
+description: Realtime LightGBM recording; land two sword attacks before freezing a creeper and drawn-bow moment.
+template: ../templates/arenas/compact.yaml
+
+world:
+  type: flat
+  time: midnight
+  difficulty: normal
+  gamerules:
+    doDaylightCycle: false
+    doMobSpawning: false
+    naturalRegeneration: false
+
+players:
+  - name: JevFighter
+    pos: [0.5, -60, 0.5]
+    # Operator so the client can freeze and step the server (JEV_FROZEN, see TIMING in src/regime.ts).
+    op: true
+    inventory:
+      - { item: diamond_sword, count: 1 }
+      - { item: cobblestone, count: 16 }
+      - { item: shield, count: 1 }
+      - { item: iron_helmet, count: 1 }
+      - { item: iron_chestplate, count: 1 }
+      - { item: iron_leggings, count: 1 }
+      - { item: iron_boots, count: 1 }
+
+entities:
+  # A nearer zombie gives the opening some sword combat before the crossfire arrives.
+  - { type: zombie, pos: [4.5, -60, 0.5], nbt: "{PersistenceRequired:1b}" }
+  - { type: creeper, pos: [12.5, -60, -3.5], nbt: "{PersistenceRequired:1b}" }
+  - { type: skeleton, pos: [15.5, -60, 0.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+
+client:
+  command: bun
+  args: ["../src/fight.ts"]
+
+goal:
+  kind: completion
+  who: JevFighter
+  timeout: 180

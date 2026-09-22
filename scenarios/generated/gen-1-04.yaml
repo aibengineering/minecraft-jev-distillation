@@ -1,0 +1,57 @@
+name: jev-gen-1-04
+description: "Generated fight 1-04: skeleton, skeleton, skeleton, creeper; terrain step 3x3 at 6,-6; wall 2x3 at 12,-4."
+
+world:
+  type: flat
+  time: midnight
+  difficulty: normal
+  gamerules:
+    doDaylightCycle: false
+    doMobSpawning: false
+    naturalRegeneration: false
+    mobGriefing: false
+
+# The compact arena's own geometry plus this fixture's features (a fixture's geometry replaces the template's).
+geometry:
+  - fill: { block: bedrock, from: [-6, -64, -8], to: [18, -64, 8] }
+  - fill: { block: dirt, from: [-6, -63, -8], to: [18, -62, 8] }
+  - fill: { block: sea_lantern, from: [-6, -61, -8], to: [18, -61, 8] }
+  - fill: { block: bedrock, from: [-6, -63, -8], to: [-6, -58, 8] }
+  - fill: { block: bedrock, from: [18, -63, -8], to: [18, -58, 8] }
+  - fill: { block: bedrock, from: [-5, -63, -8], to: [17, -58, -8] }
+  - fill: { block: bedrock, from: [-5, -63, 8], to: [17, -58, 8] }
+  - fill: { block: stone, from: [6, -60, -6], to: [8, -60, -4] }
+  - fill: { block: cobblestone, from: [12, -60, -4], to: [13, -59, -2] }
+
+players:
+  - name: JevFighter
+    pos: [0.5, -60, 0.5]
+    # Operator so the client can freeze and step the server (JEV_FROZEN, see TIMING in src/regime.ts).
+    op: true
+    inventory:
+      - { item: diamond_sword, count: 1 }
+      - { item: shield, count: 1 }
+      - { item: iron_helmet, count: 1 }
+      - { item: iron_chestplate, count: 1 }
+      - { item: iron_leggings, count: 1 }
+      - { item: iron_boots, count: 1 }
+      - { item: cobblestone, count: 16 }
+
+entities:
+  - { type: skeleton, pos: [8.5, -60, 5.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+  - { type: skeleton, pos: [10.5, -60, -1.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+  - { type: skeleton, pos: [-1.5, -60, -5.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+  - { type: creeper, pos: [15.5, -60, 6.5], nbt: "{PersistenceRequired:1b}" }
+
+client:
+  command: bun
+  args: ["../../src/fight.ts"]
+
+goal:
+  kind: all
+  # Wall time. A frozen fight spends jev's latency per window on top of game time, so allow ten minutes.
+  timeout: 600
+  goals:
+    - { kind: entityCount, entity: skeleton, max: 0 }
+    - { kind: entityCount, entity: creeper, max: 0 }
+    - { kind: completion, who: JevFighter }

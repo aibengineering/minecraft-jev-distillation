@@ -1,0 +1,14 @@
+[project]
+name = "jev-combat-ml"
+version = "0.1.0"
+description = "Distils jev's fight decisions into LightGBM models from the persisted samples."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "lightgbm>=4.6",
+  "numpy>=2",
+  "polars>=1.0",
+  "scikit-learn>=1.5",
+]
+
+[tool.uv]
+package = false

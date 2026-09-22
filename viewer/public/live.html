@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live decisions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Sized from the viewport height so the column fills a screen for recording; 1rem is about 1/48 of the height. */
+  :root { --bg:#0f1115; --card:#171a21; --line:#2a2f3c; --ink:#eef0f6; --muted:#9aa1b5; --accent:#5b8cff; --good:#3ecf8e; --bad:#ff5c5c; --warn:#ffb347; }
+  html { font-size: clamp(14px, 2.3vh, 44px); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font: 1rem/1.3 system-ui, -apple-system, Segoe UI, sans-serif; }
+  .wrap { max-width: 46rem; margin:0 auto; padding:0.7rem 0.9rem; }
+  header { display:flex; justify-content:space-between; align-items:baseline; gap:0.6rem; margin-bottom:0.5rem; }
+  header h1 { font-size:1.15rem; margin:0; font-weight:700; }
+  header .run { color:var(--muted); font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .strip { display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:0.5rem; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:0.5rem; padding:0.35rem 0.7rem; }
+  .stat .l { color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:.05em; }
+  .stat .v { font-size:1.45rem; font-weight:700; font-variant-numeric: tabular-nums; line-height:1.15; }
+  .health { background:var(--card); border:1px solid var(--line); border-radius:0.5rem; padding:0.45rem 0.7rem; margin-bottom:0.5rem; font-size:1rem; }
+  .health .bar { height:0.7rem; background:#2a2f3c; border-radius:0.35rem; overflow:hidden; margin-top:0.35rem; }
+  .health .bar i { display:block; height:100%; background:var(--good); }
+  .heads { display:grid; gap:0.35rem; }
+  .head { background:var(--card); border:1px solid var(--line); border-radius:0.5rem; padding:0.35rem 0.7rem 0.4rem; }
+  .head h2 { margin:0 0 0.15rem; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; display:flex; justify-content:space-between; align-items:baseline; }
+  .head h2 b { color:var(--ink); text-transform:none; letter-spacing:0; font-size:1.3rem; line-height:1.15; }
+  .opts { display:grid; gap:0.1rem; }
+  .opt { display:grid; grid-template-columns: 8rem 1fr 3.2rem; align-items:center; gap:0.5rem; font-size:0.95rem; line-height:1.2; }
+  .opt .n { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .opt .b { height:0.6rem; background:#2a2f3c; border-radius:0.3rem; overflow:hidden; }
+  .opt .b i { display:block; height:100%; background:#4a5068; }
+  .opt .p { text-align:right; font-variant-numeric: tabular-nums; color:var(--muted); }
+  .opt.chosen .n, .opt.chosen .p { color:var(--ink); font-weight:700; } .opt.chosen .b i { background:var(--accent); }
+  .applied { background:var(--card); border:1px solid var(--line); border-radius:0.5rem; padding:0.45rem 0.7rem; margin-top:0.45rem; font-size:1rem; }
+  .applied .l { color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:.05em; }
+  .now { color:var(--muted); font-size:0.85rem; margin-top:0.3rem; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .feed { margin-top:0.45rem; display:flex; flex-direction:column; gap:0.25rem; }
+  .ev { font-size:0.85rem; padding:0.3rem 0.7rem; border-radius:0.4rem; background:var(--card); border:1px solid var(--line); color:var(--muted); }
+  .ev.hit { border-color:var(--bad); color:#ffb3b3; } .ev.end.ok { border-color:var(--good); color:#b9f0d5; } .ev.end.fail { border-color:var(--bad); color:#ffb3b3; }
+  .waiting { color:var(--muted); text-align:center; padding:2rem 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1 id="title">Decisions, live</h1><div class="run" id="run">waiting for a fight to start</div></header>
+  <div class="strip">
+    <div class="stat"><div class="l">turn</div><div class="v" id="turn">–</div></div>
+    <div class="stat"><div class="l">tick</div><div class="v" id="tick">–</div></div>
+    <div class="stat"><div class="l">enemies</div><div class="v" id="enemies">–</div></div>
+    <div class="stat"><div class="l">latency <span id="lead"></span></div><div class="v" id="latency">–</div><div class="l" id="latencyMean"></div></div>
+  </div>
+  <div class="health"><div style="display:flex;justify-content:space-between"><span>health</span><b id="health">–</b></div><div class="bar"><i id="healthbar" style="width:100%"></i></div></div>
+  <div class="heads" id="heads"><div class="waiting">Start a fight and its decisions appear here.</div></div>
+  <div class="applied" id="applied" hidden></div>
+  <div class="feed" id="feed"></div>
+</div>
+<script>
+  // The option lists mirror CLASSES in src/sense/features.ts; the face options are the enemy letters of the window plus "keep".
+  const OPTIONS = { move: ["forward", "back", "left", "right", "hold"], hands: ["strike", "guard", "free", "cover"], pace: ["sprint", "walk", "sneak"] };
+  const ORDER = ["face", "move", "hands", "pace", "jump"];
+  const $ = (id) => document.getElementById(id);
+  const wanted = new URLSearchParams(location.search).get("policy");
+  const TITLES = { jev: "jev, live over the API", lgbm: "LightGBM, distilled from jev", fixed: "fixed answers" };
+  if (wanted) $("title").textContent = TITLES[wanted] ?? wanted;
+  let policy = "";
+  let enemyCount = 0;
+  let latencySum = 0;
+  let latencyCount = 0;
+
+  function bar(name, p, chosen) {
+    return `<div class="opt ${chosen ? "chosen" : ""}"><span class="n">${name}</span><span class="b"><i style="width:${Math.round(p * 100)}%"></i></span><span class="p">${Math.round(p * 100)}%</span></div>`;
+  }
+
+  function renderTurn(t) {
+    $("turn").textContent = t.turn;
+    $("tick").textContent = t.tick;
+    enemyCount = t.snapshot?.enemies?.length ?? enemyCount;
+    $("enemies").textContent = enemyCount;
+    $("latency").textContent = `${t.latencyMs} ms`;
+    latencySum += t.latencyMs;
+    latencyCount += 1;
+    $("latencyMean").textContent = `mean ${Math.round(latencySum / latencyCount)} ms`;
+    $("lead").textContent = t.regime === "latency" ? `· lead ${t.lead} ticks` : "· lead 0";
+    const h = t.snapshot?.bot?.health ?? 20;
+    $("health").textContent = h.toFixed(1);
+    $("healthbar").style.width = `${Math.max(0, Math.min(100, h * 5))}%`;
+    $("healthbar").style.background = h > 10 ? "var(--good)" : h > 5 ? "var(--warn)" : "var(--bad)";
+    const answers = t.answers ?? {};
+    const applied = t.applied ?? {};
+    const html = ORDER.map((head) => {
+      const a = answers[head];
+      if (!a) return "";
+      if (a.type === "noul") {
+        const yes = a.noul ?? 0;
+        return `<div class="head"><h2><span>jump</span><b>${yes >= 0.5 ? "yes" : "no"}</b></h2><div class="opts">${bar("yes", yes, yes >= 0.5)}${bar("no", 1 - yes, yes < 0.5)}</div></div>`;
+      }
+      const probs = a.probabilities ?? {};
+      let names = OPTIONS[head] ?? Object.keys(probs);
+      if (head === "face") names = [...Object.keys(probs).filter((k) => k !== "keep").sort(), "keep"];
+      for (const k of Object.keys(probs)) if (!names.includes(k)) names.push(k);
+      const chosen = a.choice;
+      const rows = names.map((n) => bar(head === "face" && n !== "keep" ? `${n} ${labelName(t, n).replace(/_/g, " ")}` : n, probs[n] ?? 0, n === chosen)).join("");
+      const shown = head === "face" ? `${chosen}${chosen === "keep" ? "" : ` ${labelName(t, chosen)}`}` : chosen;
+      return `<div class="head"><h2><span>${head}</span><b>${shown}</b></h2><div class="opts">${rows}</div></div>`;
+    }).join("");
+    $("heads").innerHTML = html;
+    const controls = (applied.controls ?? []).join(" + ") || "hold";
+    $("applied").hidden = false;
+    $("applied").innerHTML = `<div class="l">applied</div><div>facing <b>${applied.facedName ?? applied.face ?? "?"}</b>, ${controls}, hands <b>${applied.hands ?? "?"}</b>${applied.note ?? ""}${applied.drift ?? ""}</div><div class="now">${escapeHtml(t.now ?? "")}</div>`;
+  }
+
+  function labelName(t, letter) {
+    const i = letter.charCodeAt(0) - 65;
+    const e = t.snapshot?.enemies?.[i];
+    return e ? e.name : "";
+  }
+
+  function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+  function feed(cls, text) {
+    const el = document.createElement("div");
+    el.className = `ev ${cls}`;
+    el.textContent = text;
+    const f = $("feed");
+    f.prepend(el);
+    while (f.children.length > 3) f.lastChild.remove();
+  }
+
+  function reset(name) {
+    $("run").textContent = name.replace(/\.jsonl$/, "");
+    $("heads").innerHTML = '<div class="waiting">Fight starting…</div>';
+    $("applied").hidden = true;
+    $("feed").innerHTML = "";
+    for (const id of ["turn", "tick", "enemies", "latency", "health"]) $(id).textContent = "–";
+    $("latencyMean").textContent = "";
+    $("lead").textContent = "";
+    latencySum = 0;
+    latencyCount = 0;
+    $("healthbar").style.width = "100%";
+  }
+
+  // Fit to the window: start from the CSS size and scale the root font down until the column fits the height.
+  function fit() {
+    const root = document.documentElement;
+    root.style.fontSize = "";
+    const base = parseFloat(getComputedStyle(root).fontSize);
+    const wrap = document.querySelector(".wrap");
+    const ratio = innerHeight / wrap.scrollHeight;
+    if (ratio < 1) root.style.fontSize = `${Math.max(12, base * ratio * 0.98)}px`;
+  }
+  addEventListener("resize", fit);
+
+  const source = new EventSource(`/api/live${wanted ? `?policy=${encodeURIComponent(wanted)}` : ""}`);
+  source.onmessage = (message) => {
+    const r = JSON.parse(message.data);
+    switch (r.kind) {
+      case "run": reset(r.name); break;
+      case "meta": policy = r.policy; $("run").textContent = `${r.scenario ?? ""} · ${r.policy} · ${r.regime}${r.regime === "latency" ? "" : `, hold ${r.hold}`}`; if (!wanted) $("title").textContent = TITLES[r.policy.replace(/-.*/, "")] ?? r.policy; break;
+      case "turn": renderTurn(r); fit(); break;
+      case "hit": feed("hit", `hit for ${Number(r.amount).toFixed(1)} by ${r.by} at tick ${r.tick}`); break;
+      case "death": feed("end fail", `died at tick ${r.tick}`); break;
+      case "end": feed(`end ${r.status === "succeeded" ? "ok" : "fail"}`, `${r.status}: ${r.detail}`); fit(); break;
+    }
+  };
+  source.onerror = () => { $("run").textContent = "viewer connection lost, retrying…"; };
+</script>
+</body>
+</html>

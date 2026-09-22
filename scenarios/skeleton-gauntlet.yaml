@@ -1,0 +1,66 @@
+name: jev-skeleton-gauntlet
+description: Three bow skeletons at once, and every kill is replaced until ten have been spawned; the aim is to finish untouched.
+template: ../templates/arenas/compact.yaml
+
+world:
+  type: flat
+  time: midnight
+  difficulty: normal
+  gamerules:
+    doDaylightCycle: false
+    doMobSpawning: false
+    naturalRegeneration: false
+
+players:
+  - name: JevFighter
+    pos: [0.5, -60, 0.5]
+    # Operator so the client can freeze and step the server (JEV_FROZEN, see TIMING in src/regime.ts).
+    op: true
+    inventory:
+      - { item: diamond_sword, count: 1 }
+      - { item: cobblestone, count: 16 }
+      - { item: shield, count: 1 }
+      - { item: iron_helmet, count: 1 }
+      - { item: iron_chestplate, count: 1 }
+      - { item: iron_leggings, count: 1 }
+      - { item: iron_boots, count: 1 }
+
+# The three that are up at the start. Seven more follow, one for each kill, so ten are fought in all.
+entities:
+  - { type: skeleton, pos: [15.5, -60, 0.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+  - { type: skeleton, pos: [12.5, -60, 6.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+  - { type: skeleton, pos: [12.5, -60, -6.5], nbt: '{PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",count:1},{}]}' }
+
+# A scoreboard counts how many have been spawned so far, starting at the three above.
+setup:
+  - "scoreboard objectives add gauntlet dummy"
+  - "scoreboard players set #spawned gauntlet 3"
+
+# Every tick: count the living skeletons; while one or two are up and fewer than ten have been
+# spawned, summon the next one at a spot along the far edges, never beside the bot, and count it.
+# "One or two", not "fewer than three": the commands also run during preparation, before the
+# declared skeletons exist, and a zero count then would spawn three extra before the fight.
+# The check runs before the summon, so at most one appears per tick and the arena never empties
+# until the tenth is dead, which is what the kill goal waits for.
+tick:
+  - "execute store result score #alive gauntlet if entity @e[type=skeleton]"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 3 run summon skeleton 15.5 -60 -5.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 4 run summon skeleton 15.5 -60 5.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 5 run summon skeleton -4.5 -60 6.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 6 run summon skeleton -4.5 -60 -6.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 7 run summon skeleton 16.5 -60 0.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 8 run summon skeleton 8.5 -60 -6.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 9 run summon skeleton 8.5 -60 6.5 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",count:1},{}]}"
+  - "execute if score #alive gauntlet matches 1..2 if score #spawned gauntlet matches 3..9 run scoreboard players add #spawned gauntlet 1"
+
+client:
+  command: bun
+  args: ["../src/fight.ts"]
+
+goal:
+  kind: all
+  # Wall time. A frozen fight spends jev's latency per window on top of game time, so allow ten minutes.
+  timeout: 600
+  goals:
+    - { kind: kill, target: skeleton }
+    - { kind: completion, who: JevFighter }

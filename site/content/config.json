@@ -1,0 +1,6 @@
+{
+  "video": "demo.mp4",
+  "pauseAt": 5.4,
+  "poster": "poster.jpg",
+  "decisions": "decisions.json"
+}

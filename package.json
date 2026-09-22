@@ -1,0 +1,44 @@
+{
+  "name": "jev-combat",
+  "version": "0.1.0",
+  "description": "jev (TypeSafe) drives a Mineflayer bot through Minecraft fights, one decision window at a time, with a tick-by-tick replay of every decision.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "bunx --bun tsc -p tsconfig.json --noEmit",
+    "fight": "bun src/run.ts terrain --frozen --step 2",
+    "fight:lgbm": "bun src/run.ts terrain --policy lgbm",
+    "fight:lgbm:watch": "bun src/run.ts terrain --policy lgbm --watch",
+    "demo:record": "bun src/run.ts demo-moment --policy lgbm --demo --watch",
+    "viewer": "bun --hot viewer/server.ts",
+    "compare": "bun review/compare.ts",
+    "tactics": "bun review/tactics.ts",
+    "samples": "bun ml/backfill.ts",
+    "train": "uv run --project ml python ml/train.py --regime frozen",
+    "verify": "bun ml/verify.ts",
+    "site:export": "bun site/export.ts",
+    "site:build": "bun site/build.ts"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "dependencies": {
+    "mineflayer": "github:aibengineering/mineflayer#9fa1140b90877a084efd988905df0c0eceaa78d0",
+    "minecraft-data": "https://github.com/aibengineering/node-minecraft-data/releases/download/mine-ai-c932f743/minecraft-data-3.116.0.tgz",
+    "prismarine-entity": "^2.5.0",
+    "vec3": "^0.1.10"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.0.1",
+    "mine-labs": "github:aibengineering/mine-labs#41ae46b1727bccb253d477f70ece2b98939b2fbc",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "minecraft-data": "https://github.com/aibengineering/node-minecraft-data/releases/download/mine-ai-c932f743/minecraft-data-3.116.0.tgz",
+    "prismarine-physics": "github:aibengineering/prismarine-physics#56a6794611069272653b14eb078a1454633f4eb3",
+    "prismarine-recipe": "github:aibengineering/prismarine-recipe#542f0600f5ddf07bb16df67fa1ac06e603bd28e0",
+    "mineflayer": "github:aibengineering/mineflayer#9fa1140b90877a084efd988905df0c0eceaa78d0"
+  }
+}

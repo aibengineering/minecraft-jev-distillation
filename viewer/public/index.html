@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>jev decisions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg: #14161a; --panel: #1c1f25; --line: #2b2f37; --text: #e6e6e6; --muted: #9aa0a8; --accent: #6ab0ff; --bot: #4fc3f7; --zombie: #6bbf59; --skeleton: #d9d9d9; --creeper: #7ed957; --arrow: #ffb74d; --hit: #ef5350; --asked: #8a8f99; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); display: grid; grid-template-columns: 260px 1fr 440px; grid-template-rows: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / -1; display: flex; gap: 16px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 14px; margin: 0; font-weight: 600; }
+  header .status { color: var(--muted); }
+  aside, main, section { overflow: auto; }
+  aside { border-right: 1px solid var(--line); background: var(--panel); }
+  aside .run { padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  aside .run:hover, aside .run.active { background: #242833; }
+  aside .run .name { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+  aside .run .sum { display: flex; gap: 10px; margin-top: 2px; flex-wrap: wrap; }
+  aside .run .sum .policy { color: #c9a227; }
+  .ok { color: #81c784; } .bad { color: var(--hit); }
+  main { display: grid; grid-template-rows: auto 84px minmax(320px, 1fr); padding: 8px; gap: 8px; min-width: 0; }
+  @media (max-width: 1100px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; min-height: 100vh; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 160px; }
+    section { border-left: 0; border-top: 1px solid var(--line); }
+    #map { height: 420px; }
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .controls input[type=range] { flex: 1; min-width: 160px; }
+  button { background: #2a2f3a; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  button:hover { background: #343a47; }
+  canvas { display: block; width: 100%; background: #0f1114; border: 1px solid var(--line); border-radius: 4px; }
+  #timeline { height: 84px; }
+  #map { height: calc(100% - 4px); }
+  section { border-left: 1px solid var(--line); background: var(--panel); padding: 10px 12px; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; }
+  section h2:first-child { margin-top: 0; }
+  .bar { display: grid; grid-template-columns: 130px 1fr 44px; gap: 8px; align-items: center; margin: 2px 0; }
+  .bar .track { height: 10px; background: #2a2f3a; border-radius: 3px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--accent); }
+  .bar.chosen .fill { background: #81c784; }
+  .bar .label { font-family: ui-monospace, monospace; font-size: 12px; }
+  .bar .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .applied { font-family: ui-monospace, monospace; font-size: 12px; background: #242833; padding: 6px 8px; border-radius: 4px; white-space: pre-wrap; }
+  .frame { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .enemy { font-size: 12px; margin: 3px 0; padding-left: 8px; border-left: 3px solid var(--line); }
+  .enemy.faced { border-left-color: var(--accent); }
+  .now { border-left-color: var(--arrow); }
+  details pre { font-size: 11px; white-space: pre-wrap; color: #cfd3da; background: #0f1114; padding: 8px; border-radius: 4px; max-height: 320px; overflow: auto; }
+  .hit { color: var(--hit); font-family: ui-monospace, monospace; font-size: 12px; }
+  .muted { color: var(--muted); }
+  kbd { background: #2a2f3a; border-radius: 3px; padding: 0 5px; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>jev decisions</h1>
+  <span id="runTitle" class="status">pick a run</span>
+  <span class="muted" style="margin-left:auto"><kbd>←</kbd> <kbd>→</kbd> tick · <kbd>shift</kbd>+<kbd>←</kbd> <kbd>→</kbd> decision · <kbd>space</kbd> play · <kbd>r</kbd> refresh</span>
+</header>
+<aside id="runs"></aside>
+<main>
+  <div class="controls">
+    <button id="play">play</button>
+    <input id="scrub" type="range" min="0" max="0" value="0">
+    <span id="tickLabel" class="muted" style="min-width:210px"></span>
+    <label class="muted">speed <select id="speed"><option value="0.25">¼x</option><option value="0.5">½x</option><option value="1" selected>1x real time</option><option value="2">2x</option><option value="4">4x</option></select></label>
+    <label class="muted"><input id="trails" type="checkbox" checked> trails</label>
+  </div>
+  <canvas id="timeline"></canvas>
+  <canvas id="map"></canvas>
+</main>
+<section id="detail"><span class="muted">Decisions appear here.</span></section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SHIELD_READY = 5;
+const state = { runs: [], run: null, records: [], turns: [], hits: [], frames: [], swings: [], shields: [], index: 0, playing: false, timer: null, bounds: null, synthetic: false };
+const COLORS = { zombie: "var(--zombie)", skeleton: "var(--skeleton)", creeper: "var(--creeper)" };
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name.replace(/^var\((.*)\)$/, "$1")).trim() || name;
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+async function loadRuns() {
+  state.runs = await (await fetch("/api/runs")).json();
+  const list = $("runs");
+  list.innerHTML = "";
+  for (const run of state.runs) {
+    const div = document.createElement("div");
+    div.className = "run" + (run.name === state.run ? " active" : "");
+    div.innerHTML = `<div class="name">${run.name}</div><div class="sum"><span class="${run.status === "succeeded" ? "ok" : "bad"}">${run.status}</span><span class="policy">${run.policy}</span><span>${run.turns} decisions</span><span>${run.hits} hits</span><span>${run.damage} dmg</span></div>`;
+    div.onclick = () => loadRun(run.name);
+    list.appendChild(div);
+  }
+  if (!state.run && state.runs[0]) loadRun(state.runs[0].name);
+}
+
+async function loadRun(name) {
+  state.run = name;
+  state.records = await (await fetch("/api/runs/" + encodeURIComponent(name))).json();
+  // Training rows for this run, by turn: the flat feature row the LightGBM model reads and the labels.
+  state.samples = new Map();
+  try { for (const row of await (await fetch("/api/samples/" + encodeURIComponent(name))).json()) state.samples.set(row.turn, row); } catch {}
+  state.turns = state.records.filter((r) => r.kind === "turn");
+  state.hits = state.records.filter((r) => r.kind === "hit");
+  state.swings = state.records.filter((r) => r.kind === "swing");
+  state.shields = state.records.filter((r) => r.kind === "shield");
+  const frames = state.records.filter((r) => r.kind === "frame");
+  state.synthetic = frames.length === 0;
+  // Older logs have no frames: replay from the decision snapshots instead.
+  state.frames = state.synthetic
+    ? state.turns.map((t) => ({
+        tick: t.tick,
+        bot: { position: t.snapshot.bot.position, yaw: t.snapshot.bot.yaw, health: t.snapshot.bot.health, shieldUp: t.snapshot.bot.shield.up, shieldServer: t.snapshot.bot.shield.server, controls: t.applied.controls },
+        enemies: t.snapshot.enemies.map((e) => ({ id: e.id, name: e.name, position: e.position, yaw: e.yaw, health: e.health, drawing: e.drawing })),
+        arrows: t.snapshot.arrows,
+      }))
+    : frames;
+  const end = state.records.find((r) => r.kind === "end");
+  $("runTitle").textContent = `${name} · ${end ? end.status + ": " + end.detail : "no end record"}${state.synthetic ? " · no per-tick frames in this log, showing decision snapshots" : ""}`;
+  $("scrub").max = Math.max(0, state.frames.length - 1);
+  state.index = 0;
+  fitBounds();
+  document.querySelectorAll("#runs .run").forEach((el) => el.classList.toggle("active", el.querySelector(".name").textContent === name));
+  render();
+}
+
+function fitBounds() {
+  const xs = [], zs = [];
+  for (const f of state.frames) {
+    xs.push(f.bot.position.x); zs.push(f.bot.position.z);
+    for (const e of f.enemies) { xs.push(e.position.x); zs.push(e.position.z); }
+  }
+  if (!xs.length) { state.bounds = { minX: -10, maxX: 20, minZ: -10, maxZ: 10 }; return; }
+  const pad = 3;
+  state.bounds = { minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad, minZ: Math.min(...zs) - pad, maxZ: Math.max(...zs) + pad };
+}
+
+/** The decision in force at a tick: the latest one applied on or before it. */
+function decisionAt(tick) {
+  let best = null;
+  for (const t of state.turns) { if ((t.appliedTick ?? t.tick) <= tick) best = t; else break; }
+  return best;
+}
+function frameIndexAtTick(tick) {
+  let best = 0;
+  state.frames.forEach((f, i) => { if (f.tick <= tick) best = i; });
+  return best;
+}
+function shieldActiveAt(tick, frame) {
+  if (!frame.bot.shieldUp) return false;
+  if (state.synthetic) return true;
+  let raised = null;
+  for (const s of state.shields) { if (s.tick <= tick) raised = s.up ? s.tick : null; else break; }
+  return raised !== null && tick - raised >= SHIELD_READY;
+}
+
+function sizeCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
+    canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+function drawTimeline() {
+  const { ctx, w, h } = sizeCanvas($("timeline"));
+  ctx.clearRect(0, 0, w, h);
+  const n = state.frames.length;
+  if (!n) return;
+  const t0 = state.frames[0].tick, t1 = state.frames[n - 1].tick;
+  const x = (tick) => 8 + ((tick - t0) / Math.max(1, t1 - t0)) * (w - 16);
+  const y = (health) => h - 14 - (health / 20) * (h - 30);
+  // hands strip: what the decision in force asked for, from its applied tick to the next
+  for (let i = 0; i < state.turns.length; i++) {
+    const t = state.turns[i], next = state.turns[i + 1];
+    const a = t.appliedTick ?? t.tick, b = next ? (next.appliedTick ?? next.tick) : t1;
+    ctx.fillStyle = t.applied.hands === "guard" ? "rgba(106,176,255,.6)" : t.applied.hands === "strike" ? (t.applied.swung ? "rgba(255,255,255,.8)" : "rgba(255,255,255,.25)") : "rgba(154,160,168,.25)";
+    ctx.fillRect(x(a), 2, Math.max(1, x(b) - x(a)), 5);
+  }
+  // decision markers: asked (grey) and applied (white)
+  for (const t of state.turns) {
+    ctx.strokeStyle = css("var(--asked)"); ctx.beginPath(); ctx.moveTo(x(t.tick), 9); ctx.lineTo(x(t.tick), 14); ctx.stroke();
+    if (t.appliedTick != null) { ctx.strokeStyle = "#fff"; ctx.beginPath(); ctx.moveTo(x(t.appliedTick), 9); ctx.lineTo(x(t.appliedTick), 15); ctx.stroke(); }
+  }
+  // shield active strip along the bottom
+  let raised = null, si = 0;
+  for (const f of state.frames) {
+    while (si < state.shields.length && state.shields[si].tick <= f.tick) { raised = state.shields[si].up ? state.shields[si].tick : null; si++; }
+    const active = state.synthetic ? f.bot.shieldUp : f.bot.shieldUp && raised !== null && f.tick - raised >= SHIELD_READY;
+    ctx.fillStyle = active ? "rgba(106,176,255,.5)" : f.bot.shieldUp ? "rgba(106,176,255,.15)" : "transparent";
+    ctx.fillRect(x(f.tick), h - 7, Math.max(1, (w - 16) / Math.max(1, t1 - t0)), 5);
+  }
+  // health
+  ctx.strokeStyle = css("var(--line)"); ctx.beginPath(); ctx.moveTo(8, y(20)); ctx.lineTo(w - 8, y(20)); ctx.moveTo(8, y(0)); ctx.lineTo(w - 8, y(0)); ctx.stroke();
+  ctx.strokeStyle = css("var(--bot)"); ctx.lineWidth = 2; ctx.beginPath();
+  state.frames.forEach((f, i) => { const px = x(f.tick), py = y(f.bot.health); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+  ctx.stroke(); ctx.lineWidth = 1;
+  for (const s of state.swings) { ctx.fillStyle = "#fff"; ctx.fillRect(x(s.tick) - 1, h - 13, 2, 5); }
+  for (const hit of state.hits) { ctx.fillStyle = css("var(--hit)"); ctx.beginPath(); ctx.arc(x(hit.tick), y(hit.health + hit.amount), 4, 0, Math.PI * 2); ctx.fill(); }
+  const cur = state.frames[state.index];
+  ctx.strokeStyle = "#fff"; ctx.beginPath(); ctx.moveTo(x(cur.tick), 0); ctx.lineTo(x(cur.tick), h); ctx.stroke();
+}
+
+function drawMap() {
+  const { ctx, w, h } = sizeCanvas($("map"));
+  ctx.clearRect(0, 0, w, h);
+  const f = state.frames[state.index];
+  if (!f) return;
+  const d = decisionAt(f.tick);
+  const b = state.bounds;
+  const scale = Math.min((w - 20) / (b.maxX - b.minX), (h - 20) / (b.maxZ - b.minZ));
+  const ox = (w - (b.maxX - b.minX) * scale) / 2, oz = (h - (b.maxZ - b.minZ) * scale) / 2;
+  const X = (x) => ox + (x - b.minX) * scale, Z = (z) => oz + (z - b.minZ) * scale;
+  ctx.strokeStyle = "#1e2229";
+  for (let gx = Math.ceil(b.minX); gx <= b.maxX; gx++) { ctx.beginPath(); ctx.moveTo(X(gx), Z(b.minZ)); ctx.lineTo(X(gx), Z(b.maxZ)); ctx.stroke(); }
+  for (let gz = Math.ceil(b.minZ); gz <= b.maxZ; gz++) { ctx.beginPath(); ctx.moveTo(X(b.minX), Z(gz)); ctx.lineTo(X(b.maxX), Z(gz)); ctx.stroke(); }
+  if ($("trails").checked) {
+    const from = Math.max(0, state.index - (state.synthetic ? 30 : 120));
+    ctx.strokeStyle = "rgba(79,195,247,.35)"; ctx.beginPath();
+    for (let i = from; i <= state.index; i++) { const p = state.frames[i].bot.position; i === from ? ctx.moveTo(X(p.x), Z(p.z)) : ctx.lineTo(X(p.x), Z(p.z)); }
+    ctx.stroke();
+    const byId = {};
+    for (let i = from; i <= state.index; i++) for (const e of state.frames[i].enemies) (byId[e.id] ??= []).push(e.position);
+    ctx.strokeStyle = "rgba(160,160,160,.3)";
+    for (const pts of Object.values(byId)) { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z))); ctx.stroke(); }
+  }
+  for (const hit of state.hits) if (hit.tick <= f.tick && hit.position) {
+    const fresh = f.tick - hit.tick < 10;
+    ctx.fillStyle = fresh ? "rgba(239,83,80,.9)" : "rgba(239,83,80,.4)"; ctx.beginPath(); ctx.arc(X(hit.position.x), Z(hit.position.z), fresh ? 9 : 5, 0, Math.PI * 2); ctx.fill();
+  }
+  const bot = f.bot;
+  const facedId = d?.applied.facedId;
+  for (const e of f.enemies) {
+    const px = X(e.position.x), pz = Z(e.position.z);
+    ctx.fillStyle = css(COLORS[e.name] ?? "#aaa");
+    ctx.beginPath(); ctx.arc(px, pz, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = ctx.fillStyle; ctx.beginPath(); ctx.moveTo(px, pz); ctx.lineTo(px - Math.sin(e.yaw) * 14, pz - Math.cos(e.yaw) * 14); ctx.stroke();
+    if (e.id === facedId) { ctx.strokeStyle = css("var(--accent)"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, pz, 11, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
+    if (e.drawing) { ctx.strokeStyle = css("var(--arrow)"); ctx.beginPath(); ctx.arc(px, pz, 15, 0, Math.PI * 2); ctx.stroke(); }
+    const label = d?.snapshot.enemies.find((s) => s.id === e.id)?.label ?? "";
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui"; ctx.fillText(`${label} ${e.name}`, px + 10, pz - 10);
+    if (e.health != null) { ctx.fillStyle = "#333"; ctx.fillRect(px - 10, pz + 10, 20, 3); ctx.fillStyle = "#81c784"; ctx.fillRect(px - 10, pz + 10, 20 * Math.max(0, e.health) / 20, 3); }
+  }
+  for (const a of f.arrows) {
+    const px = X(a.position.x), pz = Z(a.position.z);
+    if (a.stopped) { ctx.fillStyle = "rgba(255,183,77,.35)"; ctx.fillRect(px - 2, pz - 2, 4, 4); continue; }
+    ctx.strokeStyle = css("var(--arrow)"); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, pz); ctx.lineTo(px + a.velocity.x * scale * 2, pz + a.velocity.z * scale * 2); ctx.stroke(); ctx.lineWidth = 1;
+    if (a.impactTicks != null) { ctx.fillStyle = css("var(--hit)"); ctx.font = "10px system-ui"; ctx.fillText(`hit in ${a.impactTicks}`, px + 6, pz - 6); }
+  }
+  // bot: shield half-disc in front (faint while activating, solid once active), a swing as a white wedge for a few ticks after it
+  const bx = X(bot.position.x), bz = Z(bot.position.z);
+  const look = bot.yaw;
+  const heading = Math.atan2(-Math.cos(look), -Math.sin(look));
+  if (bot.shieldUp) {
+    const active = shieldActiveAt(f.tick, f);
+    ctx.fillStyle = active ? "rgba(106,176,255,.28)" : "rgba(106,176,255,.12)";
+    ctx.beginPath(); ctx.moveTo(bx, bz); ctx.arc(bx, bz, 1.6 * scale, heading - Math.PI / 2, heading + Math.PI / 2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = active ? css("var(--accent)") : "rgba(106,176,255,.5)"; ctx.lineWidth = active ? 3 : 1.5;
+    ctx.beginPath(); ctx.arc(bx, bz, 1.6 * scale, heading - Math.PI / 2, heading + Math.PI / 2); ctx.stroke(); ctx.lineWidth = 1;
+  }
+  const swing = state.swings.find((s) => s.tick <= f.tick && f.tick - s.tick < 4) ?? (state.synthetic && d?.applied.swung && d.appliedTick <= f.tick ? { tick: d.appliedTick } : null);
+  if (swing) {
+    const age = f.tick - swing.tick;
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0.1, 0.4 - age * 0.08)})`;
+    ctx.beginPath(); ctx.moveTo(bx, bz); ctx.arc(bx, bz, 3 * scale, heading - 0.55, heading + 0.55); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, bz, 3 * scale, heading - 0.55, heading + 0.55); ctx.stroke(); ctx.lineWidth = 1;
+  }
+  ctx.fillStyle = css("var(--bot)"); ctx.beginPath(); ctx.arc(bx, bz, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, bz); ctx.lineTo(bx - Math.sin(look) * 16, bz - Math.cos(look) * 16); ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = "#fff"; ctx.font = "11px system-ui"; ctx.fillText(`${bot.health.toFixed(1)} hp`, bx + 10, bz + 14);
+  const controls = (bot.controls ?? []).join("+") || "still";
+  const handsLabel = d ? (d.applied.hands === "strike" ? (d.applied.swung ? "STRIKE" : "STRIKE (nothing in reach)") : d.applied.hands.toUpperCase()) : "";
+  ctx.fillStyle = d?.applied.hands === "guard" ? css("var(--accent)") : "#fff";
+  ctx.font = "bold 11px system-ui"; ctx.fillText(`${handsLabel} · ${controls}`, bx + 10, bz - 12);
+  // markers when this tick is a decision moment
+  const asked = state.turns.find((t) => t.tick === f.tick), applied = state.turns.find((t) => t.appliedTick === f.tick);
+  ctx.font = "bold 12px system-ui";
+  if (asked) { ctx.fillStyle = css("var(--asked)"); ctx.fillText(`◔ snapshot sent to jev (decision ${asked.turn})`, 10, 18); }
+  if (applied) { ctx.fillStyle = "#fff"; ctx.fillText(`● decision ${applied.turn} applied`, 10, asked ? 34 : 18); }
+  ctx.font = "10px system-ui"; ctx.fillStyle = css("var(--muted)");
+  ctx.fillText("blue half-disc: shield (solid = active) · white wedge: sword swing · orange ring: drawing bow · red dot: hit · timeline: grey tick = snapshot sent, white tick = decision applied", 8, h - 8);
+}
+
+function bar(label, value, chosen) {
+  const pct = Math.round(value * 100);
+  return `<div class="bar${chosen ? " chosen" : ""}"><span class="label">${label}</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span class="pct">${pct}%</span></div>`;
+}
+
+function renderDetail() {
+  const f = state.frames[state.index];
+  if (!f) { $("detail").innerHTML = '<span class="muted">No frames in this run.</span>'; return; }
+  const d = decisionAt(f.tick);
+  let html = `<h2>Tick ${f.tick}</h2>`;
+  html += `<div class="frame">bot ${f.bot.position.x}, ${f.bot.position.z} · yaw ${f.bot.yaw} · ${f.bot.health.toFixed(1)} hp · shield ${f.bot.shieldUp ? (shieldActiveAt(f.tick, f) ? "active" : "raising") : "down"}${f.bot.shieldServer ? " ✓server" : f.bot.shieldUp ? " ✗server" : ""} · controls ${(f.bot.controls ?? []).join("+") || "none"}</div>`;
+  const hit = state.hits.find((h) => h.tick === f.tick);
+  if (hit) html += `<div class="hit">HIT for ${hit.amount} by ${hit.by} (${hit.shield})</div>`;
+  if (!d) { html += `<div class="muted">Before the first decision took effect.</div>`; $("detail").innerHTML = html; return; }
+  const s = d.snapshot, a = d.answers, ap = d.applied;
+  const since = f.tick - (d.appliedTick ?? d.tick);
+  html += `<h2>Decision ${d.turn} in force · asked at tick ${d.tick}, applied at ${d.appliedTick ?? "?"} (${since} tick${since === 1 ? "" : "s"} ago) · ${d.latencyMs} ms · lead ${d.lead}</h2>`;
+  html += `<div class="applied">face ${ap.face} → ${ap.facedName}\nmove ${ap.move} · pace ${ap.pace} · jump ${ap.jump}\nhands ${ap.hands}${ap.swung ? " (swung)" : ""}${ap.note || ""}\ncontrols ${ap.controls.join("+") || "none"}</div>`;
+  if (d.now) html += `<div class="enemy now">${escapeHtml(d.now)}</div>`;
+  html += `<h2>Answers</h2>`;
+  for (const [name, answer] of Object.entries(a)) {
+    if (answer.type === "choice") {
+      html += `<div class="muted">${name} · confidence ${Math.round(answer.confidence * 100)}%</div>`;
+      for (const [option, p] of Object.entries(answer.probabilities).sort((x, y) => y[1] - x[1])) html += bar(option, p, option === answer.choice);
+    } else if (answer.type === "noul") html += bar(name, answer.noul, answer.noul >= 0.5);
+  }
+  html += `<h2>Snapshot jev saw (tick ${d.tick})</h2><div class="enemy">health ${s.bot.health.toFixed(1)} · sword ${s.bot.swordReadyIn ? "ready in " + s.bot.swordReadyIn : "ready"} · shield ${s.bot.shield.up ? (s.bot.shield.activeIn ? "active in " + s.bot.shield.activeIn : "active") : "down"} · ${s.bot.hurtAgo == null ? "not hit" : "hit " + s.bot.hurtAgo + " ticks ago by " + s.bot.lastHitBy}</div>`;
+  for (const e of s.enemies) html += `<div class="enemy${e.id === s.bot.facedId ? " faced" : ""}"><b>${e.label}</b> ${e.name} · ${e.distance} → ${e.forecastDistance} blocks · ${e.bearing} · ${e.facing} · ${e.motion}${e.health != null ? " · hp " + e.health : ""}${e.states.length ? " · " + e.states.join(", ") : ""}${e.hitUsAgo != null ? " · hit us " + e.hitUsAgo + " ago" : ""}</div>`;
+  if (s.arrows.length) { html += `<h2>Arrows</h2>`; for (const ar of s.arrows) html += `<div class="enemy">arrow at ${ar.position.x},${ar.position.z} · ${ar.impactTicks == null ? "miss" : "hits in " + ar.impactTicks}</div>`; }
+  html += `<h2>Ground</h2><div class="muted">${Object.entries(s.ground).map(([k, v]) => k + ": " + v).join(" · ")}</div>`;
+  const sample = state.samples?.get(d.turn);
+  if (sample) {
+    const groups = {};
+    for (const [key, value] of Object.entries(sample.features)) {
+      if (value === null) continue;
+      const group = key.includes("_") ? key.slice(0, key.indexOf("_")) : "window";
+      (groups[group] ??= []).push(`${key.slice(key.indexOf("_") + 1)}=${typeof value === "number" && !Number.isInteger(value) ? value.toFixed(2) : value}`);
+    }
+    const names = { window: "window", b: "bot", g: "ground", n: "aggregates", e0: "enemy slot 0 (A)", e1: "enemy slot 1 (B)", e2: "enemy slot 2 (C)", e3: "enemy slot 3 (D)", a0: "arrow slot 0", a1: "arrow slot 1", p: "previous window" };
+    html += `<details><summary class="muted">feature row the model reads (${Object.values(sample.features).filter((v) => v !== null).length} of ${Object.keys(sample.features).length} set) · labels ${Object.entries(sample.labels).map(([k, v]) => k + "=" + v).join(" ")} · ${sample.regime ?? "latency"}${sample.hold ? " hold " + sample.hold : ""}</summary><pre>${Object.entries(groups).map(([g, items]) => `${names[g] ?? g}: ${items.join("  ")}`).join("\n")}</pre></details>`;
+  } else html += `<div class="muted">no training row for this decision (run bun ml/backfill.ts)</div>`;
+  html += `<details><summary class="muted">state text jev received</summary><pre>${escapeHtml(d.state)}</pre></details>`;
+  html += `<details><summary class="muted">questions</summary><pre>${escapeHtml(JSON.stringify(d.questions, null, 1))}</pre></details>`;
+  $("detail").innerHTML = html;
+}
+
+function render() {
+  $("scrub").value = state.index;
+  const f = state.frames[state.index];
+  const d = f ? decisionAt(f.tick) : null;
+  $("tickLabel").textContent = f ? `tick ${f.tick} · ${(f.tick / 20).toFixed(1)} s · decision ${d ? d.turn : "-"} / ${state.turns.length}` : "";
+  drawTimeline(); drawMap(); renderDetail();
+}
+
+function step(delta) { state.index = Math.max(0, Math.min(state.frames.length - 1, state.index + delta)); render(); }
+function jumpDecision(delta) {
+  const f = state.frames[state.index];
+  const applied = state.turns.map((t) => t.appliedTick ?? t.tick);
+  const next = delta > 0 ? applied.find((tick) => tick > f.tick) : [...applied].reverse().find((tick) => tick < f.tick);
+  if (next != null) { state.index = frameIndexAtTick(next); render(); }
+}
+function togglePlay() {
+  state.playing = !state.playing;
+  $("play").textContent = state.playing ? "pause" : "play";
+  clearInterval(state.timer);
+  if (state.playing) {
+    const perFrame = state.synthetic ? 300 : 50;
+    state.timer = setInterval(() => { if (state.index >= state.frames.length - 1) togglePlay(); else step(1); }, perFrame / Number($("speed").value));
+  }
+}
+$("play").onclick = togglePlay;
+$("scrub").oninput = (e) => { state.index = Number(e.target.value); render(); };
+$("speed").onchange = () => { if (state.playing) { togglePlay(); togglePlay(); } };
+$("trails").onchange = render;
+$("timeline").onclick = (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const n = state.frames.length; if (!n) return;
+  const t0 = state.frames[0].tick, t1 = state.frames[n - 1].tick;
+  const tick = t0 + ((e.clientX - rect.left - 8) / (rect.width - 16)) * (t1 - t0);
+  state.index = frameIndexAtTick(Math.round(tick)); render();
+};
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") e.shiftKey ? jumpDecision(-1) : step(-1);
+  else if (e.key === "ArrowRight") e.shiftKey ? jumpDecision(1) : step(1);
+  else if (e.key === " ") { e.preventDefault(); togglePlay(); } else if (e.key === "r") loadRuns();
+});
+window.addEventListener("resize", render);
+loadRuns();
+setInterval(loadRuns, 15000);
+</script>
+</body>
+</html>

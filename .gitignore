@@ -1,0 +1,14 @@
+node_modules/
+.mine-labs/
+.env
+logs/*.jsonl
+ml/.venv/
+__pycache__/
+scratch/
+# Datasets and trained models stay local: samples are rebuilt from logs with `bun ml/backfill.ts`, models with `bun run train`.
+data/
+ml/models/
+# The fight site's build output; GitHub Actions builds and publishes it from site/.
+dist/
+# Superseded full-fight exports; only the selected demo is published.
+site/content/fights/

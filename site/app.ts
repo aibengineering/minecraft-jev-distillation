@@ -114,7 +114,7 @@ function requestPreview(): string {
     <h3>Questions <small>${Object.keys(moment.questions).length}</small></h3>
     <div class="preview-questions">${Object.entries(moment.questions).map(([name, question]) => `<details class="preview-question"><summary><span>${esc(name)}</span><code>${esc(question.type)}</code></summary><p>${esc(question.instructions)}</p>${question.criteria ? `<dl>${Object.entries(question.criteria).map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(value ?? "")}</dd>`).join("")}</dl>` : ""}</details>`).join("")}</div>
     <h3>State <small>tick ${moment.tick}</small></h3>
-    ${instructions ? `<p class="state-caption"><em>General preamble · shared combat instructions</em></p><div class="state-text">${esc(instructions)}</div>` : ""}
+    ${instructions ? `<p class="state-caption"><em>Shared combat instructions</em></p><div class="state-text">${esc(instructions)}</div>` : ""}
     <p class="state-caption"><em>Observations at tick ${moment.tick}</em></p>
     <div class="state-text">${esc(observation)}</div>
   </div>`;
@@ -123,7 +123,7 @@ function requestPreview(): string {
 function jevView(): string {
   const request = { model: moment.jevResponseMeta?.requestedModel ?? "jev-latest", questions: moment.questions, state: moment.state };
   return `<div class="io-grid">
-    <section class="input-column"><div class="io-heading"><span class="eyebrow">Input</span><h2>The Jev request</h2><p>The exact state and five questions ${moment.jevAnswer ? "sent to Jev" : "prepared for Jev"}.</p></div>
+    <section class="input-column"><div class="io-heading"><span class="eyebrow">Input</span><h2>Jev request</h2><p>State and questions from tick ${moment.tick}.</p></div>
       <div class="io-content"><div class="request-file">
         <div class="request-toolbar"><div role="tablist" aria-label="Request format">${(["preview", "json"] as const).map(view => `<button type="button" role="tab" id="request-tab-${view}" data-request-view="${view}" aria-selected="${requestView === view}" aria-controls="request-${view}" tabindex="${requestView === view ? 0 : -1}">${view === "json" ? "JSON" : "Preview"}</button>`).join("")}</div><span>request.json</span></div>
         <div id="request-preview" role="tabpanel" aria-labelledby="request-tab-preview" tabindex="0" ${requestView === "preview" ? "" : "hidden"}>${requestPreview()}</div>
@@ -150,9 +150,9 @@ function jevOutput(response: JevResponse): string {
     if (answer.type === "noul") return probabilityRow(head, { no: 1 - answer.noul, yes: answer.noul }, label, answer.noul >= .5 ? "yes" : "no");
     return "";
   }).join("");
-  return `<div class="io-heading"><span class="eyebrow">Output</span><h2>Jev’s response <span class="model-badge">${esc(response.model)}</span></h2><p>All answer probabilities, with the selected options highlighted.</p></div>
+  return `<div class="io-heading"><span class="eyebrow">Output</span><h2>Jev’s response <span class="model-badge">${esc(response.model)}</span></h2><p>Probability of each answer.</p></div>
     <div class="io-content"><div class="predictions">${answers}</div>
-    <p class="fine">Queried on this saved frame.</p>
+    <p class="fine">Queried after recording, using this saved state.</p>
     <details class="raw-response"><summary>Full response JSON</summary><pre class="json-code" tabindex="0" aria-label="Jev response JSON"><code>${highlightedJson(response)}</code></pre></details></div>`;
 }
 
@@ -226,13 +226,13 @@ function modelView(): string {
     }
   });
   return `<div class="io-grid">
-    <section class="input-column"><div class="io-heading"><span class="eyebrow">Input</span><h2>${Object.keys(row).length} numerical features</h2><p>Change the inputs to see how the model’s decision changes.</p></div>
-      <div class="io-content"><div class="playground-heading"><h3>Try a change</h3><button id="reset" class="text-button">Reset inputs</button></div>
+    <section class="input-column"><div class="io-heading"><span class="eyebrow">Input</span><h2>${Object.keys(row).length} numerical features</h2><p>Predictions update as you edit the features.</p></div>
+      <div class="io-content"><div class="playground-heading"><h3>Example edits</h3><button id="reset" class="text-button">Reset inputs</button></div>
       <div class="input-examples" role="group" aria-label="Try a different decision">${INPUT_EXAMPLES.map((example, index) => `<button type="button" data-example="${index}" aria-pressed="${exampleSelected(index)}"><span>${esc(example.title)} <span aria-hidden="true">↗</span></span><small>${esc(example.description)}</small></button>`).join("")}</div>
-      <p class="fine example-note">Examples start from the recorded inputs.</p>
+      <p class="fine example-note">Each example resets the inputs before applying its edits.</p>
       <div id="input-changes">${inputChanges()}</div>
       <div class="controls">${controls.join("")}</div>
-      <h3 class="section-title">Browse by category</h3><div class="feature-groups">${FEATURE_GROUPS.map(([title, re]) => {
+      <h3 class="section-title">All features</h3><div class="feature-groups">${FEATURE_GROUPS.map(([title, re]) => {
         const keys = Object.keys(row).filter(key => re.test(key));
         return `<details class="feature-group"><summary><span>${esc(title)}</span><small>${keys.length}</small></summary><div class="feature-list">${keys.map(key => {
           const codes = featureCodes(key);
@@ -241,7 +241,7 @@ function modelView(): string {
         }).join("")}</div></details>`;
       }).join("")}</div></div>
     </section>
-    <section class="output-column"><div class="io-heading"><span class="eyebrow">Output</span><h2>The predicted action</h2><p>Five models choose what the bot would do next.</p></div>
+    <section class="output-column"><div class="io-heading"><span class="eyebrow">Output</span><h2>LightGBM predictions</h2><p>Probability of each answer.</p></div>
       <div class="io-content"><div id="predictions" class="predictions">${predictions()}</div>
       <p id="changed" class="output-status" aria-live="polite">${inputStatus()}</p></div>
     </section></div>`;
@@ -312,7 +312,8 @@ async function main() {
   mountAnalysis($("model-analysis"), await json<ModelAnalysis>("analysis.json"));
   $("status").textContent = "Saved inputs loaded";
   const archer = moment.snapshot.enemies.find(enemy => enemy.name === "skeleton");
-  $("story-detail").textContent = `${moment.swordHits?.length ?? "Several"} sword hits in, the skeleton is drawing its bow${archer?.releaseIn != null ? ` and will release in about ${archer.releaseIn} ticks` : ""}. At tick ${moment.tick}, let’s look at the inputs behind the next decision.`;
+  $("decision-title").textContent = `The decision at tick ${moment.tick}`;
+  $("story-detail").textContent = `The bot has landed ${moment.swordHits?.length ?? "several"} sword hits. The skeleton is drawing its bow${archer?.releaseIn != null ? ` and will release in about ${archer.releaseIn} ticks` : ""}. Both models receive inputs from this state.`;
   for (const name of ["jev", "lgbm"] as const) $("pick-" + name).onclick = () => { side = name; render(); };
   $("inspect-now").onclick = () => reveal(0);
   const play = async () => {
@@ -344,7 +345,7 @@ async function main() {
       await video.play();
       $("play").textContent = "Ⅱ Pause";
       $("screen").dataset.playback = "playing";
-      $("status").textContent = "Watch the opening exchange. We’ll pause before the next decision.";
+      $("status").textContent = `Playing · pauses at tick ${moment.tick}`;
     } catch { $("status").textContent = "Press play to start the recording."; }
   };
   $("play").onclick = play;
@@ -362,7 +363,7 @@ async function main() {
         $<HTMLButtonElement>("play").disabled = false;
         $<HTMLButtonElement>("inspect-now").disabled = false;
       }
-      $("status").textContent = "Watch the fight, then inspect one decision.";
+      $("status").textContent = `Playback pauses at tick ${moment.tick}.`;
 
       if (author) {
         video.controls = true;

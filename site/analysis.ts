@@ -39,24 +39,24 @@ function selectedStories(data: ModelAnalysis): string {
   const at = (pdp: Dependence, choice: string, value: number) => percent(pdp.probabilities[choice]![pdp.grid.indexOf(value)]!);
   const stories = [
     {
-      pdp: sword, choice: "strike", output: "strike", title: "A ready sword changes the decision",
+      pdp: sword, choice: "strike", output: "strike", title: "Sword cooldown",
       insight: `${at(sword, "strike", 0)} → ${at(sword, "strike", 1)}`,
       detail: "Ready now → one tick of cooldown left",
-      explanation: `The average chance of striking drops sharply as soon as the sword still needs time to recharge. At three ticks, it is ${at(sword, "strike", 3)}.`,
+      explanation: `Strike probability falls as the cooldown increases. With three ticks remaining, it averages ${at(sword, "strike", 3)} across the sampled states.`,
       labels: [0, sword.grid.indexOf(1), sword.grid.indexOf(3)], boundary: undefined,
     },
     {
-      pdp: shield, choice: "0", output: "face A", title: "Shield coverage matters when choosing a target",
+      pdp: shield, choice: "0", output: "face A", title: "Facing and shield coverage",
       insight: `${percent(shield.probabilities["0"]![0]!)} → ${percent(shield.probabilities["0"]!.at(-1)!)}`,
       detail: `Shots straight ahead → ${Math.round(shield.grid.at(-1)!)}° off to the side`,
-      explanation: "If facing enemy A would leave incoming fire outside the shield arc—more than 90° off-centre—the model becomes less likely to choose A. The curve drops near that boundary. A is the nearest enemy, not a fixed species.",
+      explanation: "A is the nearest enemy. The probability of facing A drops near 90°, where incoming shots would fall outside the shield’s coverage if the bot faced that enemy.",
       labels: [0, shield.grid.length - 1], boundary: 90,
     },
     {
-      pdp: ground, choice: "true", output: "jump", title: "A step ahead raises the chance of jumping",
+      pdp: ground, choice: "true", output: "jump", title: "Ground ahead and jumping",
       insight: `${at(ground, "true", 0)} → ${at(ground, "true", 2)}`,
       detail: "Open floor → a step up",
-      explanation: "Jumping is uncommon overall, but changing the ground ahead to a step produces a clear increase. It still stays below 50%: the other parts of the state also matter.",
+      explanation: `Setting the ground ahead to a step raises average jump probability to ${at(ground, "true", 2)}. This averages over many combat states, so it doesn’t mean the bot jumps every time it encounters a step.`,
       labels: [ground.grid.indexOf(2)], boundary: undefined,
     },
   ];
@@ -66,52 +66,52 @@ function selectedStories(data: ModelAnalysis): string {
 function collectionStory(data: ModelAnalysis): string {
   const source = "https://github.com/aibengineering/minecraft-jev-distillation/blob/main/src";
   return `<section class="collection-story" aria-labelledby="collection-title">
-    <div class="analysis-heading"><span class="eyebrow">Collecting the training data</span><h2 id="collection-title">Let Jev think while the fight waits</h2>
-      <p>We collected the data by letting Jev control real Minecraft fights, with the world paused between decisions. Each reply could take around 300 ms from Australia; the fight waited for the answer, however long it took.</p></div>
+    <div class="analysis-heading"><h2 id="collection-title">Collecting training data</h2>
+      <p>I collected training examples by letting Jev control the bot in Minecraft fights. The game paused for each API request, then advanced two ticks after the reply. This gave Jev time to answer the current state before the fight moved on.</p></div>
     <ol class="collection-steps">
       <li><span class="collection-number" aria-hidden="true">01</span><h3>Freeze the fight</h3>
-        <p>The operator bot freezes the server and disables its own Mineflayer physics. Mobs, projectiles and creeper fuses stop while Jev thinks.</p>
+        <p>The bot has operator permissions, so it can freeze the server with a chat command. Disabling Mineflayer’s physics also stops the bot’s movement and local tick counter.</p>
         <pre><code>bot.chat(<span class="json-string">"/tick freeze"</span>);
 bot.physicsEnabled = <span class="json-literal">false</span>;</code></pre>
-        <p class="fine">The loop checks that world time has stopped before collecting its first decision.</p></li>
-      <li><span class="collection-number" aria-hidden="true">02</span><h3>Read, decide and save</h3>
-        <p>From the same paused state, we generate prose and five questions for <span class="jev-word">Jev</span>, plus 414 numerical features for <span class="model-word">LightGBM</span>. Jev receives the text and questions.</p>
-        <p>We apply its answer, then save the inputs, answer probabilities and derived training labels together as one dataset row.</p></li>
-      <li><span class="collection-number" aria-hidden="true">03</span><h3>Play two ticks, then repeat</h3>
-        <p>Re-enable the bot’s physics and advance the frozen world by two ticks—100 ms of game time. The server pauses again automatically; we stop client physics and read the next state.</p>
+        <p class="fine">Before the first request, the loop checks that world time has stopped.</p></li>
+      <li><span class="collection-number" aria-hidden="true">02</span><h3>Record Jev’s answer</h3>
+        <p>The code describes the paused state as text and five questions for <span class="jev-word">Jev</span>. It also calculates 414 numerical features from that state for <span class="model-word">LightGBM</span>.</p>
+        <p>After Jev replies, the bot applies the answer. The inputs, probabilities and training labels are saved together.</p></li>
+      <li><span class="collection-number" aria-hidden="true">03</span><h3>Advance two ticks</h3>
+        <p>The bot’s physics resumes and <code>/tick step 2</code> runs two server ticks, or 100 ms of game time. The server then pauses automatically. The loop stops client physics and collects the next example.</p>
         <pre><code>bot.physicsEnabled = <span class="json-literal">true</span>;
 bot.chat(<span class="json-string">"/tick step 2"</span>);
 await bot.waitForTicks(<span class="json-number">2</span>);
 bot.physicsEnabled = <span class="json-literal">false</span>;</code></pre></li>
     </ol>
     <div class="collection-dataset">
-      <div><h3>One row per decision</h3><p><code>data/samples/&lt;run&gt;.jsonl</code> holds the paired examples. Each row keeps:</p>
+      <div><h3>The dataset</h3><p>Each decision becomes a row in <code>data/samples/&lt;run&gt;.jsonl</code>:</p>
         <dl><dt>Inputs</dt><dd>The state text, face criteria and numerical features.</dd><dt>Targets</dt><dd>Jev’s answers, probabilities and the labels each classifier learns.</dd><dt>Context</dt><dd>The fight, tick, prompt version and timing settings.</dd></dl></div>
       <div><pre><code>appendFileSync(this.file,
   JSON.stringify(sample) + <span class="json-string">"\\n"</span>);</code></pre>
         <p class="fine">One JSON object per line. The full request, snapshot and applied action also go into the fight log under <code>logs/</code>.</p>
         <p class="collection-source">See the <a href="${source}/fight.ts">collection loop</a>, <a href="${source}/record/samples.ts">dataset writer</a> and <a href="${source}/regime.ts">freeze/step implementation</a>.</p></div>
     </div>
-    <p class="collection-result">Repeating this across <strong>${data.runs} fights</strong> produced <strong>${data.rows.toLocaleString()} Jev-labelled decisions</strong>. We trained five LightGBM classifiers on those feature rows and Jev’s choices. The local model then makes the same five kinds of decisions during normal, unpaused play—the mode shown in the video above.</p>
-    <p class="fine collection-limit">Two implementation details: jumps are stepped through to landing before pausing. Minecraft also keeps player cooldowns running during a server freeze, even though our recorded clocks count stepped ticks; this makes collection easier on the bot than continuous play.</p>
+    <p class="collection-result">I collected <strong>${data.rows.toLocaleString()} examples</strong> from <strong>${data.runs} fights</strong>, then trained one LightGBM classifier for each decision: face, move, hands, pace and jump. Each classifier takes the numerical features as input and learns to predict Jev’s answer. During play, these models run locally and the game continues without pausing.</p>
+    <p class="fine collection-limit">The loop lets the bot land before pausing after a jump. Player cooldowns also keep running during Minecraft’s server freeze, while the recorded clocks count only stepped ticks. The bot can therefore recover between actions during collection in a way it cannot during continuous play.</p>
   </section>`;
 }
 
 export function mountAnalysis(element: HTMLElement, data: ModelAnalysis) {
   let head = "hands";
-  element.innerHTML = `${collectionStory(data)}<div class="analysis-heading"><span class="eyebrow">Across the training fights</span><h2>Model analysis</h2><p>${data.rows.toLocaleString()} Jev-labelled decisions from ${data.runs} fights. How closely does LightGBM reproduce them?</p></div>
+  element.innerHTML = `${collectionStory(data)}<div class="analysis-heading"><h2>Model analysis</h2><p>I evaluated how often LightGBM chose the same answers as Jev, holding out entire fights together in cross-validation.</p></div>
     <h3>Agreement with Jev</h3>
-    <p class="analysis-caption">Cross-validation with entire fights held out together. Accuracy here means choosing the same answer as Jev.</p>
+    <p class="analysis-caption">Accuracy measures agreement with Jev. It does not measure how often the bot wins a fight.</p>
     <div class="score-scroll"><table class="score-table"><thead><tr><th scope="col">Decision</th><th scope="col">Accuracy</th><th scope="col" aria-describedby="baseline-note">Majority baseline</th><th scope="col" aria-describedby="macro-f1-note">Macro-F1</th></tr></thead><tbody>${Object.entries(data.heads).map(([name, { score }]) => `<tr><th scope="row">${name}</th><td><span class="score-value">${percent(score.accuracy)}</span><span class="score-track" aria-hidden="true"><i style="width:${score.accuracy * 100}%"></i><b style="left:${score.majorityBaseline * 100}%"></b></span></td><td>${percent(score.majorityBaseline)}</td><td>${score.macroF1.toFixed(3)}</td></tr>`).join("")}</tbody></table></div>
     <p id="baseline-note" class="fine"><strong>Majority baseline:</strong> accuracy from always choosing the most common answer. For movement, always choosing “forward” scores ${percent(data.heads.move!.score.majorityBaseline)}. The marker on each bar shows this baseline.</p>
     <p id="macro-f1-note" class="fine"><strong>Macro-F1:</strong> the simple average of F1 scores across observed classes. Each class’s F1 is the harmonic mean of precision and recall. Rare actions such as “hold” count as much as common ones such as “forward”.</p>
     <div class="analysis-picker"><h3>Feature importance</h3><div class="analysis-tabs" role="tablist" aria-label="Decision">${Object.keys(data.heads).map(name => `<button type="button" role="tab" id="analysis-tab-${name}" data-head="${name}" aria-controls="feature-importance-panel" aria-selected="${name === head}" tabindex="${name === head ? 0 : -1}">${name[0]!.toUpperCase() + name.slice(1)}</button>`).join("")}</div></div>
-    <div id="feature-importance-panel" role="tabpanel" aria-labelledby="analysis-tab-hands" tabindex="0"><p class="analysis-caption">Share of tree splits · top eight features. This measures how often a feature is used, rather than the size of its effect.</p><div id="importance-bars"></div></div>
-    <section class="selected-pdps"><h3>Three patterns in the model</h3><p class="analysis-caption">Selected partial dependence plots: change one input across saved states and average the predictions. All charts use a 0–100% scale.</p>${selectedStories(data)}<p class="fine">These are selected examples, not a ranking of all effects. Related features stay fixed, so some combinations may not occur in play. <a href="https://scikit-learn.org/1.7/modules/partial_dependence.html">About PDPs</a></p></section>
-    <details class="analysis-method"><summary>Evaluation method</summary><p>The saved scores use grouped cross-validation by fight. Those validation folds also selected boosting rounds, so these are validation estimates, not an untouched final test or combat win rates.</p>
+    <div id="feature-importance-panel" role="tabpanel" aria-labelledby="analysis-tab-hands" tabindex="0"><p class="analysis-caption">The eight features used most often to split the decision trees. Each bar shows its share of splits; this does not measure how much it changes a prediction.</p><div id="importance-bars"></div></div>
+    <section class="selected-pdps"><h3>Partial dependence</h3><p class="analysis-caption">For each plot, I changed one feature across a sample of saved states and averaged the resulting probabilities. These three examples show how the model responds to sword cooldown, shield coverage and terrain.</p>${selectedStories(data)}<p class="fine">Other features stay fixed, including related values, so some edited states may not occur in play. <a href="https://scikit-learn.org/1.7/modules/partial_dependence.html">About partial dependence</a></p></section>
+    <details class="analysis-method"><summary>Evaluation method</summary><p>The validation folds were also used to select the number of boosting rounds. These scores are validation estimates; a separate final test set was not used.</p>
       <p>The baseline is the share of the most frequent label in the full dataset. Macro-F1 averages over classes present in the labels. Jumping is rare: only ${data.heads.jump!.score.classes.true} of ${data.rows.toLocaleString()} labels request a jump.</p>
       <p>Feature importance counts splits in the exact exported model. Gain values were not retained in that export. <a href="https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster.feature_importance">LightGBM importance definitions</a>.</p>
-      <p>The three PDPs were selected for interpretable contrasts after inspecting candidate features. Each averages raw probabilities over a reproducible sample of up to 1,024 training decisions where that feature was observed. Each decision has equal weight; longer fights contribute more rows. Continuous grids span the 5th–95th percentiles; features with at most 21 distinct values use all observed values. Other features, including related summaries, remain unchanged. These curves describe the trained model, not causal effects or held-out performance.</p>
+      <p>I chose the three plots after inspecting several features. Each uses a reproducible sample of up to 1,024 training decisions where the feature was observed. Every decision has equal weight, so longer fights contribute more rows. For continuous features, the plotted range runs from the 5th to the 95th percentile. Features with at most 21 distinct values use all observed values. The curves show the model’s predictions on edited training states; they do not establish causal effects or performance on unseen fights.</p>
       <p>Model trained ${esc(data.trainedAt.slice(0, 10))}. <a href="content/analysis.json" download>Download analysis data</a>.</p>
     </details>`;
 

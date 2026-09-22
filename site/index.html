@@ -15,7 +15,7 @@
   <main>
     <section class="intro">
       <h1>Distilling Jev for Minecraft Combat</h1>
-      <p>Watch a bot trained on <span class="jev-word">Jev’s decisions</span> fight in Minecraft.</p>
+      <p>A Minecraft combat bot trained on <span class="jev-word">Jev’s decisions</span>.</p>
     </section>
     <section class="demo" id="demo" aria-label="Interactive fight demo">
       <div class="media-row">
@@ -34,11 +34,10 @@
         </section>
       </div>
       <section id="decision-story" class="decision-story" hidden aria-live="polite">
-        <p class="eyebrow">From Jev to a local model</p>
         <h2>Playing from Australia</h2>
-        <p><span class="jev-word">Jev’s</span> decisions were good enough to train the fighter you just watched. TypeSafe’s low-cost model handles classification and structured decisions, with <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">reported responses around 100 ms</a>.</p>
-        <p>But Jev is hosted in the US, and even a fast model has to answer across a network. From Australia, our requests take around <strong>300 ms</strong>. So we trained a local <span class="model-word">LightGBM classifier</span> on Jev’s decisions to keep the fight responsive. That’s the model in this recording.</p>
-        <h3>Let’s inspect this decision.</h3><p id="story-detail"></p>
+        <p><span class="jev-word">Jev</span> is TypeSafe’s low-cost decision model, with <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">reported response times around 100 ms</a>. From Australia, my requests took around <strong>300 ms</strong>.</p>
+        <p>I trained a local <span class="model-word">LightGBM model</span> to imitate Jev’s combat decisions without waiting for an API response. That’s what controls the bot in this recording.</p>
+        <h3 id="decision-title">The paused decision</h3><p id="story-detail"></p>
       </section>
       <section id="panel" class="panel" data-side="jev" hidden>
         <div class="panel-top"><div class="toggle" role="group" aria-label="State representation"><span class="toggle-thumb" aria-hidden="true"></span><button id="pick-jev" aria-pressed="true" disabled>Jev <small>JSON request</small></button><button id="pick-lgbm" aria-pressed="false" disabled>LightGBM <small>features</small></button></div></div>

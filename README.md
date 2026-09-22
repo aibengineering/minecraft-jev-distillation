@@ -1,4 +1,4 @@
-# jev-combat
+# Distilling Jev for Minecraft Combat
 
 A Mineflayer bot fights in Minecraft arenas one decision window at a time.
 Each window it senses the fight, asks a policy five questions (which enemy to
@@ -107,7 +107,9 @@ jev's own latency for a like-for-like comparison.
 
 The deployed model is trained on every frozen jev window: 17,592 windows
 from 93 fights across all six fixtures and the generated set. Runs are held
-out whole, so the agreement is on fights the model never saw.
+out whole for grouped cross-validation. These validation folds also select the
+boosting rounds, so the scores are validation estimates rather than an untouched
+final test. They measure imitation of Jev, not combat win rates.
 
 | Question | Majority class | Agreement with jev | Where jev was at least 60 % sure |
 | --- | --- | --- | --- |
@@ -125,8 +127,13 @@ was applied, plus swing, shield, hit and end records. `data/samples/` holds
 one row per window with the feature row, the labels, jev's probabilities and
 the text. Both are rebuilt or written by every run and are the paid-for
 asset: keep them backed up outside the repository. `ml/models/` is rebuilt
-from the samples in about two minutes. None of the three is tracked in git,
-so a fresh clone has no model until it has been trained.
+from the samples in about two minutes. None of those directories is tracked in
+Git. The selected demo model is committed separately at `site/content/model.json`;
+a fresh clone can use it without retraining:
+
+```bash
+bun src/run.ts mixed --policy lgbm --model site/content/model.json --watch
+```
 
 ## Explore a fight
 
@@ -155,7 +162,8 @@ window and its mean.
 `site/` presents one real recording, one frozen moment, and a Jev / LightGBM
 switch over that same captured state. Jev shows the exact generated state text
 and questions; LightGBM shows the captured model's predictions and editable
-features. The Jev tab does not claim an API answer was requested. Editing a
+features. The Jev tab includes a saved response requested after the recording;
+LightGBM controlled the recorded fight. Editing a
 feature holds other inputs fixed, including derived values; it is not a world
 simulation. The existing viewer remains available for full-fight analysis.
 
@@ -168,8 +176,8 @@ project root:
 bun run demo:record
 ```
 
-This expands to `bun src/run.ts demo-moment --policy lgbm --demo --watch`.
-It uses the trained local model in real time, with the ordinary two-tick decision
+This expands to `bun src/run.ts demo-moment --policy lgbm --model site/content/model.json --demo --watch`.
+It uses the committed demo model in real time, with the ordinary two-tick decision
 windows. **Do not add `--frozen`.** No Jev API call or key is needed.
 
 1. When the log says **DEMO READY**, start OBS recording. The world stays frozen

@@ -217,6 +217,24 @@ video { display: block; width: 100%; height: 100%; object-fit: contain; }
 .analysis-heading { max-width: 850px; margin-bottom: 30px; }
 .analysis-heading h2 { font-size: 34px; margin: 0 0 12px; }
 .analysis-heading p { margin: 0; }
+.collection-story { margin-bottom: 44px; padding-bottom: 36px; border-bottom: 1px solid var(--line); }
+.collection-steps { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; padding: 0; margin: 34px 0; }
+.collection-steps li { min-width: 0; border-top: 2px solid var(--green-fill); padding-top: 16px; }
+.collection-number { display: block; color: var(--green); font-size: 14px; margin-bottom: 10px; }
+.collection-steps p, .collection-dataset p { font-size: 17px; }
+.collection-story pre { padding: 16px; background: var(--soft); border: 1px solid var(--line); overflow-x: auto; font: 14px/1.7 Consolas, monospace; }
+.collection-story pre code { font: inherit; }
+.collection-dataset { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px; border-top: 1px solid var(--line); padding-top: 28px; }
+.collection-dataset>div { min-width: 0; }
+.collection-dataset pre { margin-top: 0; }
+.collection-dataset dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 20px; font-size: 16px; }
+.collection-dataset dt { color: var(--green); }
+.collection-dataset dd { margin: 0; }
+.collection-source { font-size: 15px !important; }
+.collection-result { max-width: 970px; margin: 28px 0 14px; }
+.collection-result strong { color: var(--pink); font-weight: normal; }
+.collection-story .fine { font-size: 14px; }
+.collection-limit { max-width: 970px; }
 .model-analysis h3 { font-size: 23px; font-weight: normal; margin: 0 0 8px; }
 .model-analysis h4 { font-size: 19px; font-weight: normal; margin: 0; }
 .analysis-caption { color: var(--muted); font-size: 15px; margin: 8px 0 18px; }
@@ -272,6 +290,8 @@ video { display: block; width: 100%; height: 100%; object-fit: contain; }
 footer { display: flex; justify-content: space-between; gap: 20px; font-size: 14px; color: var(--muted); margin-top: 75px; padding-top: 20px; padding-bottom: 28px; border-top: 1px solid var(--line); }
 @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media(max-width:900px) {
+  .collection-steps { grid-template-columns: 1fr; gap: 22px; }
+  .collection-dataset { grid-template-columns: 1fr; gap: 18px; }
   .theme { top: 16px; right: 26px; }
   main, footer { padding-left: 26px; padding-right: 26px; }
   .media-row { grid-template-columns: minmax(0, 1fr) 205px; gap: 22px; }
